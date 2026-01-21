@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inside Out Console - Hyper Realistic</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #1a0b2e 0%, #000000 100%);
+        }
+        #canvas-container { width: 100vw; height: 100vh; position: relative; }
+        
+        /* UI Overlay - Kept your existing style but polished */
+        #info-panel {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0.9);
+            width: 400px;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 24px;
+            padding: 40px;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.27);
+            color: white;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        #info-panel.active {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .close-btn {
+            position: absolute;
+            top: 20px; right: 20px;
+            cursor: pointer;
+            font-size: 24px;
+            opacity: 0.7;
+            transition: 0.2s;
+        }
+        .close-btn:hover { opacity: 1; transform: scale(1.1); }
+        .panel-emoji { font-size: 80px; text-align: center; margin-bottom: 20px; filter: drop-shadow(0 0 20px rgba(255,255,255,0.3)); }
+        .panel-title { font-size: 32px; font-weight: 700; text-align: center; margin-bottom: 10px; letter-spacing: -0.5px; }
+        .panel-text { font-size: 16px; line-height: 1.6; text-align: center; opacity: 0.9; }
+        .instruction {
+            position: absolute; bottom: 40px; width: 100%; text-align: center;
+            color: rgba(255, 255, 255, 0.5); font-size: 14px; letter-spacing: 2px; text-transform: uppercase;
+            animation: pulse 3s infinite; pointer-events: none;
+        }
+        @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.8; } }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div class="instruction">Select a Memory</div>
+
+    <div id="info-panel">
+        <div class="close-btn">×</div>
+        <div class="panel-emoji"></div>
+        <div class="panel-title"></div>
+        <div class="panel-text"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <script>
+        // --- SCENE SETUP ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        // Add subtle fog to blend the floor into the void
+        scene.fog = new THREE.FogExp2(0x1a0b2e, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 6, 14); // High angle view like the movie console
+        camera.lookAt(0, 2, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        container.appendChild(renderer.domElement);
+
+        // --- LIGHTING (The key to realism) ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+        scene.add(ambientLight);
+
+        // Main spotlight acting as the "Core" glow
+        const spotLight = new THREE.SpotLight(0xffffff, 1);
+        spotLight.position.set(5, 10, 5);
+        spotLight.angle = Math.PI / 4;
+        spotLight.penumbra = 0.5;
+        scene.add(spotLight);
+
+        // Blueish rim light from below for that sci-fi feel
+        const rimLight = new THREE.PointLight(0x4455ff, 1);
+        rimLight.position.set(-5, 0, -5);
+        scene.add(rimLight);
+
+        // --- MATERIALS ---
+        // 1. The Console White Plastic
+        const consoleMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0xffffff,
+            metalness: 0.1,
+            roughness: 0.2, // Slightly glossy
+            clearcoat: 0.8,
+            clearcoatRoughness: 0.1
+        });
+
+        // 2. The Glass Orb Material
+        const glassMaterialBase = new THREE.MeshPhysicalMaterial({
+            metalness: 0.0,
+            roughness: 0.1,
+            transmission: 0.9, // Glass-like transparency
+            thickness: 1.5,
+            clearcoat: 1.0
+        });
+
+        // --- GEOMETRY: The "Trumpet" Stand ---
+        // Instead of cylinders, we use LatheGeometry to spin a curve into a smooth 3D shape
+        const points = [];
+        // Define the profile curve of the console stand
+        points.push(new THREE.Vector2(1.5, 0));   // Base width
+        points.push(new THREE.Vector2(0.5, 2));   // Narrow neck
+        points.push(new THREE.Vector2(0.5, 3));   // Neck continues
+        points.push(new THREE.Vector2(3.5, 4));   // Flares out wide for the table
+        points.push(new THREE.Vector2(3.5, 4.2)); // Thickness of table lip
+        points.push(new THREE.Vector2(3.3, 4.2)); // Inner lip
+        points.push(new THREE.Vector2(3.3, 4.0)); // Inner dip
+
+        const standGeometry = new THREE.LatheGeometry(points, 64); // 64 segments for smoothness
+        const stand = new THREE.Mesh(standGeometry, consoleMaterial);
+        stand.position.y = -2; // Move down so the top is near center
+        scene.add(stand);
+
+        // The Top "Cap" (The sandwich lid)
+        const lidGeometry = new THREE.CylinderGeometry(3.5, 3.5, 0.2, 64);
+        const lid = new THREE.Mesh(lidGeometry, consoleMaterial);
+        lid.position.y = 3.5; // Gap between stand top (2) and lid
+        // We will add the lid to the scene, but strictly it floats in the movie or is connected by a thin glass pillar.
+        // Let's add a central glass pillar to hold the lid
+        const glassPillarGeo = new THREE.CylinderGeometry(0.8, 0.5, 2.5, 32);
+        const glassPillarMat = new THREE.MeshPhysicalMaterial({
+            color: 0xffffff, transmission: 0.8, opacity: 0.5, transparent: true, roughness: 0.1
+        });
+        const centerPillar = new THREE.Mesh(glassPillarGeo, glassPillarMat);
+        centerPillar.position.y = 2.5;
+        scene.add(centerPillar);
+        scene.add(lid);
+
+        // --- MEMORY ORBS ---
+        const orbs = [];
+        const carouselGroup = new THREE.Group(); // This group will spin
+        carouselGroup.position.y = 2.4; // Position in the gap between stand and lid
+        scene.add(carouselGroup);
+
+        const memoryData = [
+            { id: 'sadness', color: 0x4A90E2, emoji: '😢', title: 'Sadness', text: 'Moments that help us connect through empathy.' },
+            { id: 'disgust', color: 0x7FD67F, emoji: '🤢', title: 'Disgust', text: 'Keeps us safe from broccoli and poison.' },
+            { id: 'anger',   color: 0xE74C3C, emoji: '😠', title: 'Anger', text: 'Helps us fight for what is fair.' },
+            { id: 'fear',    color: 0xB388FF, emoji: '😨', title: 'Fear', text: 'Prepares us for the dangers of life.' },
+            { id: 'envy',    color: 0x00A896, emoji: '🥺', title: 'Envy', text: 'Wishing for what others have.' }
+        ];
+
+        // Create the Carousel Orbs
+        const radius = 2.2; // Distance from center
+        const angleStep = (Math.PI * 2) / memoryData.length;
+
+        memoryData.forEach((data, index) => {
+            const angle = index * angleStep;
+            
+            // Create orb mesh
+            const geometry = new THREE.SphereGeometry(0.6, 32, 32);
+            const material = glassMaterialBase.clone();
+            material.color.setHex(data.color);
+            material.emissive.setHex(data.color);
+            material.emissiveIntensity = 0.2;
+
+            const orb = new THREE.Mesh(geometry, material);
+            
+            // Position in circle
+            orb.position.x = Math.cos(angle) * radius;
+            orb.position.z = Math.sin(angle) * radius;
+            
+            // Add internal "cloud" (simple smaller sphere for depth)
+            const cloudGeo = new THREE.SphereGeometry(0.3, 16, 16);
+            const cloudMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 });
+            const cloud = new THREE.Mesh(cloudGeo, cloudMat);
+            orb.add(cloud);
+
+            // Add glow light to each orb
+            const orbLight = new THREE.PointLight(data.color, 1, 3);
+            orb.add(orbLight);
+
+            orb.userData = data; // Store data for click
+            carouselGroup.add(orb);
+            orbs.push(orb);
+        });
+
+        // --- CORE MEMORY (Top Center) ---
+        const coreData = { id: 'joy', color: 0xFFD700, emoji: '😊', title: 'Joy', text: 'A Core Memory! Pure happiness.' };
+        const coreGeo = new THREE.SphereGeometry(0.85, 40, 40);
+        const coreMat = glassMaterialBase.clone();
+        coreMat.color.setHex(coreData.color);
+        coreMat.emissive.setHex(coreData.color);
+        coreMat.emissiveIntensity = 0.4;
+        
+        const coreOrb = new THREE.Mesh(coreGeo, coreMat);
+        coreOrb.position.y = 4.4; // Sit on top of the lid
+        coreOrb.userData = coreData;
+        scene.add(coreOrb);
+        orbs.push(coreOrb); // Add to interactable list
+
+        // Add a strong glow for the Core
+        const coreGlow = new THREE.PointLight(0xFFD700, 2, 8);
+        coreGlow.position.y = 4.4;
+        scene.add(coreGlow);
+
+
+        // --- INTERACTION ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const infoPanel = document.getElementById('info-panel');
+        let isPaused = false;
+
+        function onMouseClick(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(orbs);
+
+            if (intersects.length > 0) {
+                const data = intersects[0].object.userData;
+                showPanel(data);
+                isPaused = true; // Pause rotation while reading
+            } else {
+                hidePanel();
+                isPaused = false;
+            }
+        }
+
+        function showPanel(data) {
+            infoPanel.querySelector('.panel-emoji').textContent = data.emoji;
+            infoPanel.querySelector('.panel-title').textContent = data.title;
+            infoPanel.querySelector('.panel-title').style.color = '#' + data.color.toString(16);
+            infoPanel.querySelector('.panel-text').textContent = data.text;
+            infoPanel.classList.add('active');
+        }
+
+        function hidePanel() {
+            infoPanel.classList.remove('active');
+        }
+
+        document.querySelector('.close-btn').addEventListener('click', () => {
+            hidePanel();
+            isPaused = false;
+        });
+        window.addEventListener('click', onMouseClick);
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- ANIMATION ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 1. Rotate the Carousel Group (The mechanical rotation)
+            if (!isPaused) {
+                carouselGroup.rotation.y += 0.005; 
+            }
+
+            // 2. Counter-rotate individual orbs so they always face somewhat forward? 
+            // Actually in the movie they spin with the track, so we leave them.
+            // But we can make them "bob" slightly.
+            orbs.forEach((orb, i) => {
+                // Bobbing effect
+                const time = Date.now() * 0.001;
+                if (orb !== coreOrb) {
+                     orb.position.y = Math.sin(time + i) * 0.1;
+                } else {
+                     // Core orb bobs slower and independently
+                     orb.position.y = 4.4 + Math.sin(time * 0.5) * 0.15;
+                }
+            });
+
+            // 3. Gentle camera drift
+            camera.position.x = Math.sin(Date.now() * 0.0002) * 0.5;
+            
+            renderer.render(scene, camera);
+        }
+        animate();
+
+    </script>
+</body>
+</html>
