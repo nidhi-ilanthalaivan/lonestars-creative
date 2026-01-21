@@ -153,14 +153,31 @@
         container.appendChild(renderer.domElement);
 
         // --- 4. LIGHTING ---
-        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-        const spotLight = new THREE.SpotLight(0xffffff, 1.5); spotLight.position.set(0, 25, 0); spotLight.penumbra = 0.5; scene.add(spotLight);
-        const rimLight = new THREE.PointLight(0x8a2be2, 2, 40); rimLight.position.set(0, 8, -15); scene.add(rimLight);
+        scene.add(new THREE.AmbientLight(0x1a1a2e, 0.2));
+        const spotLight = new THREE.SpotLight(0x4488ff, 0.5); spotLight.position.set(0, 25, 0); spotLight.penumbra = 0.7; scene.add(spotLight);
+        const rimLight = new THREE.PointLight(0x6644aa, 0.8, 40); rimLight.position.set(0, 8, -15); scene.add(rimLight);
 
         // --- 5. MATERIALS ---
         const marbleConsoleTexture = createCloudyMarbleTexture(0xe8e8f0);
-        const consoleMaterial = new THREE.MeshStandardMaterial({ color: 0xf5f5ff, map: marbleConsoleTexture, roughness: 0.15, metalness: 0.3, emissive: 0xccccee, emissiveIntensity: 0.15 });
-        const trackMaterial = new THREE.MeshStandardMaterial({ color: 0x8888ff, emissive: 0x3333ff, emissiveIntensity: 0.5, roughness: 0.3, metalness: 0.2 });
+        const consoleMaterial = new THREE.MeshPhysicalMaterial({ 
+            color: 0xffffff, 
+            map: marbleConsoleTexture, 
+            roughness: 0.05, 
+            metalness: 0.9, 
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.1,
+            emissive: 0xaaccff, 
+            emissiveIntensity: 0.3 
+        });
+        const trackMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x6699ff, 
+            emissive: 0x4488ff, 
+            emissiveIntensity: 1.2, 
+            roughness: 0.1, 
+            metalness: 0.8,
+            transparent: true,
+            opacity: 0.9
+        });
 
         // --- 6. BACKGROUND WALL (STRICT PERFECT GRID) ---
         const wallGroup = new THREE.Group();
@@ -196,8 +213,8 @@
         const standGroup = new THREE.Group(); scene.add(standGroup);
         const points = [new THREE.Vector2(2.2, 0), new THREE.Vector2(1.2, 2.0), new THREE.Vector2(1.2, 3.5), new THREE.Vector2(4.5, 5.0), new THREE.Vector2(4.5, 5.5)];
         const stand = new THREE.Mesh(new THREE.LatheGeometry(points, 64), consoleMaterial); stand.position.y = -3.5; standGroup.add(stand);
-        const underglowLight = new THREE.PointLight(0x6699ff, 3, 15); underglowLight.position.set(0, -3, 0); scene.add(underglowLight);
-        const glowDiscGeo = new THREE.CircleGeometry(2.5, 32); const glowDiscMat = new THREE.MeshBasicMaterial({ color: 0x4488ff, transparent: true, opacity: 0.3, side: THREE.DoubleSide });
+        const underglowLight = new THREE.PointLight(0x4488ff, 8, 20); underglowLight.position.set(0, -3, 0); scene.add(underglowLight);
+        const glowDiscGeo = new THREE.CircleGeometry(2.5, 32); const glowDiscMat = new THREE.MeshBasicMaterial({ color: 0x4488ff, transparent: true, opacity: 0.6, side: THREE.DoubleSide });
         const glowDisc = new THREE.Mesh(glowDiscGeo, glowDiscMat); glowDisc.rotation.x = -Math.PI / 2; glowDisc.position.y = -3.3; scene.add(glowDisc);
         const trackGeo = new THREE.RingGeometry(2.5, 4.4, 64); const track = new THREE.Mesh(trackGeo, trackMaterial); track.rotation.x = -Math.PI / 2; track.position.y = 1.75; scene.add(track);
         const lid = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 0.3, 64), consoleMaterial); lid.position.y = 4.35; scene.add(lid);
@@ -228,8 +245,8 @@
                 memoryTitle: 'Finding Home', 
                 text: "From 6th to 10th grade, I moved to a new school every single year. It was so hard to maintain friendships or even define where 'home' was. Eventually, I realized that home isn't a place on a Texas map—it's wherever my family is. As long as I'm with them, I'm home.",
                 images: [
-                     'https://placehold.co/200x200/4A90E2/ffffff?text=Texas+Map+Pins',
-                     'https://placehold.co/200x200/4A90E2/ffffff?text=Family'
+                      'https://placehold.co/200x200/4A90E2/ffffff?text=Texas+Map+Pins',
+                      'https://placehold.co/200x200/4A90E2/ffffff?text=Family'
                 ] 
             },
             { 
@@ -282,22 +299,43 @@
         memories.forEach((mem, i) => {
             const angle = i * step;
             const orbGeo = new THREE.SphereGeometry(1.2, 64, 64);
+            
+            // --- UPDATED ORB MATERIAL (NO TRANSPARENCY) ---
             const orbMat = new THREE.MeshPhysicalMaterial({
-                color: mem.color, map: createCloudyMarbleTexture(mem.color),
-                metalness: 0.1, roughness: 0.1, clearcoat: 1.0, clearcoatRoughness: 0.05,
-                emissive: mem.color, emissiveIntensity: 0.8
+                color: mem.color, 
+                map: createCloudyMarbleTexture(mem.color),
+                metalness: 0.1, 
+                roughness: 0.15, 
+                clearcoat: 1.0, 
+                clearcoatRoughness: 0.05,
+                emissive: mem.color, 
+                emissiveIntensity: 2.5,
+                transparent: false, // CHANGED
+                opacity: 1.0        // CHANGED
+                // transmission removed
             });
             const orb = new THREE.Mesh(orbGeo, orbMat);
             orb.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
-            orb.add(new THREE.PointLight(mem.color, 4, 8));
+            orb.add(new THREE.PointLight(mem.color, 12, 15));
             orb.userData = mem; 
             carousel.add(orb); clickables.push(orb);
         });
 
         const coreGeo = new THREE.SphereGeometry(1.3, 64, 64);
-        const coreMat = new THREE.MeshPhysicalMaterial({ color: 0xFFD700, map: createCloudyMarbleTexture(0xFFD700), roughness: 0.08, emissive: 0xFFD700, emissiveIntensity: 1.0 });
+        
+        // --- UPDATED CORE MATERIAL (NO TRANSPARENCY) ---
+        const coreMat = new THREE.MeshPhysicalMaterial({ 
+            color: 0xFFD700, 
+            map: createCloudyMarbleTexture(0xFFD700), 
+            roughness: 0.15, 
+            emissive: 0xFFD700, 
+            emissiveIntensity: 3.0,
+            transparent: false, // CHANGED
+            opacity: 1.0        // CHANGED
+            // transmission removed
+        });
         const coreOrb = new THREE.Mesh(coreGeo, coreMat);
-        coreOrb.position.set(0, 5.75, 0); coreOrb.add(new THREE.PointLight(0xFFD700, 5, 10));
+        coreOrb.position.set(0, 5.75, 0); coreOrb.add(new THREE.PointLight(0xFFD700, 15, 18));
         coreOrb.userData = { 
             id: 'CORE', 
             emoji: '🌟', 
