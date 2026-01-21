@@ -125,6 +125,10 @@
         </div>
     </div>
 
+    <audio id="bg-music" loop>
+      <source src="bg.mp3" type="audio/mpeg">
+    </audio>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
@@ -386,6 +390,18 @@
             renderer.render(scene, camera);
         }
         animate();
+
+        const music = document.getElementById('bg-music');
+        let musicStarted = false;
+
+        // Start music on first interaction (browser-friendly)
+        window.addEventListener('click', () => {
+          if (!musicStarted) {
+            music.volume = 0.15; // VERY IMPORTANT: keep it subtle
+            music.play();
+            musicStarted = true;
+          }
+        });
     </script>
 </body>
 </html>
